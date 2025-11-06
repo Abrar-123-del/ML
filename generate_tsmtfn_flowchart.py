@@ -178,9 +178,28 @@ def create_arrow(ax, x1, y1, x2, y2, label='', color='#333333',
     
     return arrow
 
-def format_tensor_shape(b, t, c, h, w):
-    """Format tensor shape for display."""
-    return f"({b}, {t}, {c}, {h}, {w})"
+def format_tensor_shape(b, t=None, c=None, h=None, w=None):
+    """
+    Format tensor shape for display.
+    
+    Args:
+        b: Batch size (required)
+        t: Temporal dimension (optional)
+        c: Channels (optional)
+        h: Height (optional)
+        w: Width (optional)
+    
+    Returns:
+        str: Formatted tensor shape string, e.g., "(16, 16, 3, 224, 224)"
+             or "(16, 512)" for 2D tensors
+    """
+    # Build the shape string with only non-None values
+    dims = [str(b)]
+    for dim in [t, c, h, w]:
+        if dim is not None and dim != '':
+            dims.append(str(dim))
+    
+    return f"({', '.join(dims)})"
 
 def format_gflops(value):
     """Format GFLOPs value for display."""
@@ -351,7 +370,7 @@ def generate_tsmtfn_flowchart():
     # CLASSIFICATION HEAD
     # ========================================================================
     
-    classifier_dim = format_tensor_shape(16, 512, '', '', '')
+    classifier_dim = format_tensor_shape(16, 512)
     classifier_gflops = format_gflops(NETWORK_SPECS['gflops']['classifier'])
     create_component_box(ax, 3.5, 1.5, 3, 0.9,
                         'Classification Head\n(FC + Dropout)', 

@@ -25,6 +25,17 @@ This script generates a comprehensive visualization of the **Two-Stream Multi-sc
 pip install matplotlib numpy
 ```
 
+### Design Note
+
+This implementation uses **matplotlib** for visualization rather than graphviz. This design choice was made because:
+- Matplotlib provides superior control over component positioning and styling
+- It produces cleaner, more professional flowcharts suitable for academic publication
+- It's more widely available and easier to install
+- It directly supports all required output formats (PNG, PDF, SVG) at 300 DPI
+- It allows for fine-grained customization of colors, fonts, and layouts
+
+The flowchart effectively visualizes all aspects of the TSMTFN architecture with professional styling and complete information density.
+
 ## Usage
 
 ### Basic Usage

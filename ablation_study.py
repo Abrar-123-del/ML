@@ -37,15 +37,15 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import project modules
-from models import TSMTwoStreamFusionNetwork, create_model
-from datasets import EgoGestureFusionDataset, create_dataloader
-from utils import (
+from ablation_study_project.models import TSMTwoStreamFusionNetwork, create_model
+from ablation_study_project.datasets import EgoGestureFusionDataset, create_dataloader
+from ablation_study_project.utils import (
     train_main, validate, compute_metrics,
     plot_learning_curves, plot_all_learning_curves,
     plot_comparison_bar_chart, create_ablation_summary,
     plot_component_ablation
 )
-from configs import (
+from ablation_study_project.configs import (
     DATASET_CONFIG, BASE_LR, WEIGHT_DECAY, BATCH_SIZE,
     NUM_WORKERS, EPOCHS, ABLATION_CONFIGS, OUTPUT_ROOT
 )

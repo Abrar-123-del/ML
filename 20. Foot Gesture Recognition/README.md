@@ -8,16 +8,459 @@ This project focuses on capturing and recognizing foot gestures using a 360° ca
 
 ## Table of Contents
 
-1. [Addressing Speed Variations (Walking vs Running)](#1-addressing-speed-variations-walking-vs-running)
-2. [Handling Motion Blur from Camera Movement](#2-handling-motion-blur-from-camera-movement)
-3. [Camera Placement Recommendations](#3-camera-placement-recommendations)
-4. [Step-by-Step Implementation Guide](#4-step-by-step-implementation-guide)
-5. [Data Collection Best Practices](#5-data-collection-best-practices)
-6. [Model Architecture Recommendations](#6-model-architecture-recommendations)
+1. [Working with 360° Camera Footage on Local Computer](#1-working-with-360-camera-footage-on-local-computer)
+2. [Addressing Speed Variations (Walking vs Running)](#2-addressing-speed-variations-walking-vs-running)
+3. [Handling Motion Blur from Camera Movement](#3-handling-motion-blur-from-camera-movement)
+4. [Camera Placement Recommendations](#4-camera-placement-recommendations)
+5. [Step-by-Step Implementation Guide](#5-step-by-step-implementation-guide)
+6. [Data Collection Best Practices](#6-data-collection-best-practices)
+7. [Model Architecture Recommendations](#7-model-architecture-recommendations)
 
 ---
 
-## 1. Addressing Speed Variations (Walking vs Running)
+## 1. Working with 360° Camera Footage on Local Computer
+
+### Problem
+After capturing footage with a 360° camera, you need to transfer, view, and process the video files on your local computer for creating the foot gesture dataset.
+
+### Solution Overview
+
+360° cameras typically store footage in special formats that require specific software and processing steps to work with on a standard computer.
+
+---
+
+### Step 1: Transferring 360° Video from Camera to Computer
+
+#### A. Direct Connection Methods
+
+**USB Cable Transfer (Recommended for most cameras):**
+```bash
+# Connect camera via USB cable
+# Camera usually appears as external storage device
+# Navigate to DCIM folder and copy video files
+
+# Example locations:
+# Windows: D:\DCIM\Camera\
+# Mac: /Volumes/CAMERA_NAME/DCIM/
+# Linux: /media/username/CAMERA_NAME/DCIM/
+```
+
+**WiFi/Bluetooth Transfer:**
+- Most 360° cameras have companion mobile apps (Insta360, GoPro, etc.)
+- Transfer files from camera to phone first
+- Then transfer from phone to computer via cloud or cable
+
+**SD Card Reader:**
+- Remove SD card from camera
+- Insert into computer's SD card reader
+- Copy files directly
+
+---
+
+### Step 2: Installing Required Software
+
+#### A. Camera Manufacturer's Software (Essential)
+
+Different 360° cameras require their specific software:
+
+**For Insta360 Cameras:**
+```
+Download: Insta360 Studio (Windows/Mac)
+Website: https://www.insta360.com/download
+Features:
+- View and edit 360° footage
+- Export specific viewing angles
+- Stabilization and stitching
+- Free to use
+```
+
+**For GoPro MAX:**
+```
+Download: GoPro Player (Windows/Mac)
+Website: https://gopro.com/en/us/shop/softwareandapp/gopro-player/GoPro-Player.html
+Features:
+- Play and edit 360° videos
+- Reframe to standard video
+- Export clips
+```
+
+**For Ricoh Theta:**
+```
+Download: Ricoh Theta Desktop App
+Website: https://theta360.com/en/support/download/
+Features:
+- View 360° images and videos
+- Basic editing
+- Export formats
+```
+
+#### B. General 360° Video Players
+
+**VLC Media Player (Free, Cross-platform):**
+```bash
+# Install VLC
+# Windows: Download from videolan.org
+# Mac: brew install --cask vlc
+# Linux: sudo apt-get install vlc
+
+# VLC can play many 360° formats directly
+# Use mouse to navigate the 360° view
+```
+
+**Potplayer (Windows):**
+- Supports 360° video playback
+- Download from potplayer.daum.net
+
+---
+
+### Step 3: Converting 360° Footage to Usable Format
+
+#### A. Understanding 360° Video Formats
+
+360° videos are typically stored in two projection formats:
+
+1. **Equirectangular** (Most common):
+   - Looks like a distorted panoramic image
+   - Full 360° sphere mapped to rectangular frame
+   - Standard video codec (H.264, H.265)
+
+2. **Dual Fisheye**:
+   - Two circular images side by side
+   - Requires stitching software
+
+#### B. Extracting Specific View Angles
+
+For foot gesture recognition, you don't need the full 360° - just the foot area. Here's how to extract it:
+
+**Method 1: Using Camera Manufacturer Software**
+
+```
+Example with Insta360 Studio:
+1. Import 360° video file
+2. Use "Reframe" or "FreeCapture" tool
+3. Set viewing angle to look down at feet
+   - Adjust pitch (tilt) to -30° to -45°
+   - Set direction to straight ahead
+4. Export as standard MP4 video (1920x1080 or higher)
+5. This gives you a normal video focused on foot area
+```
+
+**Method 2: Using FFmpeg (Command Line)**
+
+```bash
+# Install FFmpeg
+# Windows: Download from ffmpeg.org
+# Mac: brew install ffmpeg
+# Linux: sudo apt-get install ffmpeg
+
+# Extract a specific view from equirectangular 360° video
+ffmpeg -i input_360video.mp4 \
+  -vf "v360=e:rectilinear:yaw=0:pitch=-40:roll=0:w=1920:h=1080" \
+  -c:v libx264 -crf 18 -preset slow \
+  output_feet_view.mp4
+
+# Parameters explained:
+# e:rectilinear - Convert from equirectangular to flat view
+# yaw=0 - Direction (0=forward, 90=right, -90=left, 180=back)
+# pitch=-40 - Tilt down toward feet (negative = down)
+# w=1920:h=1080 - Output resolution
+```
+
+**Method 3: Using Python with OpenCV**
+
+```python
+import cv2
+import numpy as np
+import py360convert  # Import at module level
+
+def extract_view_from_360(input_video, output_video, pitch=-40, yaw=0):
+    """
+    Extract a specific viewing angle from 360° video
+    
+    Args:
+        input_video: Path to 360° equirectangular video
+        output_video: Path to save extracted view
+        pitch: Vertical angle (-90 to 90, negative = down)
+        yaw: Horizontal angle (0-360, 0 = forward)
+    """
+    cap = cv2.VideoCapture(input_video)
+    
+    # Get video properties
+    fps = int(cap.get(cv2.CAP_PROP_FPS))
+    
+    # Output video writer
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_video, fourcc, fps, (1920, 1080))
+    
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        
+        # Extract specific view using py360convert library
+        # Install: pip install py360convert
+        view = py360convert.e2p(frame, 
+                                fov_deg=(90, 90),  # Field of view
+                                u_deg=yaw,          # Horizontal direction
+                                v_deg=pitch,        # Vertical direction (down for feet)
+                                out_hw=(1080, 1920))
+        
+        out.write(view)
+    
+    cap.release()
+    out.release()
+
+# Usage
+extract_view_from_360('360_video.mp4', 'feet_view.mp4', pitch=-40, yaw=0)
+```
+
+---
+
+### Step 4: Processing Pipeline for Foot Gesture Dataset
+
+#### Complete Workflow
+
+```python
+# Install required libraries
+# pip install opencv-python py360convert ffmpeg-python numpy
+
+import cv2
+import os
+import py360convert
+import numpy as np
+
+class FootGestureDataProcessor:
+    """Process 360° camera footage for foot gesture recognition"""
+    
+    def __init__(self, input_dir, output_dir):
+        self.input_dir = input_dir
+        self.output_dir = output_dir
+        os.makedirs(output_dir, exist_ok=True)
+    
+    def process_360_video(self, video_path, output_name, 
+                         pitch=-40, yaw=0, fov=90):
+        """
+        Extract foot view from 360° video
+        
+        Args:
+            video_path: Path to 360° video file
+            output_name: Name for output video
+            pitch: Vertical angle (negative = look down at feet)
+            yaw: Horizontal angle (0 = forward)
+            fov: Field of view in degrees
+        """
+        cap = cv2.VideoCapture(video_path)
+        fps = int(cap.get(cv2.CAP_PROP_FPS))
+        
+        # Output setup
+        output_path = os.path.join(self.output_dir, output_name)
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(output_path, fourcc, fps, (1920, 1080))
+        
+        frame_count = 0
+        print(f"Processing {video_path}...")
+        
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            
+            # Extract foot perspective from 360° frame
+            foot_view = py360convert.e2p(
+                frame,
+                fov_deg=(fov, fov),
+                u_deg=yaw,
+                v_deg=pitch,
+                out_hw=(1080, 1920),
+                mode='bilinear'
+            )
+            
+            # Optional: Apply stabilization or enhancement here
+            
+            out.write(foot_view)
+            frame_count += 1
+            
+            if frame_count % 100 == 0:
+                print(f"Processed {frame_count} frames")
+        
+        cap.release()
+        out.release()
+        print(f"Completed: {output_path} ({frame_count} frames)")
+        
+        return output_path
+    
+    def extract_frames(self, video_path, output_folder, 
+                      frame_interval=1):
+        """
+        Extract individual frames from processed video
+        
+        Args:
+            video_path: Path to processed video
+            output_folder: Folder to save frames
+            frame_interval: Save every Nth frame (1=all frames)
+        """
+        os.makedirs(output_folder, exist_ok=True)
+        
+        cap = cv2.VideoCapture(video_path)
+        frame_count = 0
+        saved_count = 0
+        
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            
+            if frame_count % frame_interval == 0:
+                frame_path = os.path.join(
+                    output_folder, 
+                    f"frame_{saved_count:06d}.jpg"
+                )
+                cv2.imwrite(frame_path, frame)
+                saved_count += 1
+            
+            frame_count += 1
+        
+        cap.release()
+        print(f"Extracted {saved_count} frames to {output_folder}")
+
+# Usage Example
+processor = FootGestureDataProcessor(
+    input_dir='raw_360_videos',
+    output_dir='processed_foot_views'
+)
+
+# Process a 360° video to extract foot view
+processor.process_360_video(
+    video_path='raw_360_videos/walking_tap_gesture.mp4',
+    output_name='tap_gesture_feet.mp4',
+    pitch=-40,  # Look down at feet
+    yaw=0,      # Forward direction
+    fov=90      # Field of view
+)
+
+# Extract frames for dataset
+processor.extract_frames(
+    video_path='processed_foot_views/tap_gesture_feet.mp4',
+    output_folder='dataset/frames/tap_gesture',
+    frame_interval=2  # Save every 2nd frame
+)
+```
+
+---
+
+### Step 5: Recommended Software Stack
+
+#### Essential Tools
+
+| Tool | Purpose | Installation |
+|------|---------|-------------|
+| **Camera App** | View & export 360° videos | Download from camera manufacturer |
+| **FFmpeg** | Video conversion & processing | `pip install ffmpeg-python` or download binary |
+| **Python OpenCV** | Video frame extraction | `pip install opencv-python` |
+| **py360convert** | 360° format conversion | `pip install py360convert` |
+| **VLC Player** | Preview 360° videos | Download from videolan.org |
+
+#### Optional Tools
+
+| Tool | Purpose | Installation |
+|------|---------|-------------|
+| **DaVinci Resolve** | Advanced video editing | Free download from blackmagicdesign.com |
+| **Blender** | 360° video compositing | Free download from blender.org |
+| **Insta360 SDK** | Direct camera integration | Developer portal from camera manufacturer |
+
+---
+
+### Step 6: Quick Start Guide
+
+**For Beginners - Simple Workflow:**
+
+1. **Transfer video to computer**
+   - Connect camera via USB
+   - Copy all video files to folder: `raw_videos/`
+
+2. **Install Insta360 Studio or equivalent**
+   - Download from camera manufacturer website
+   - Install and open
+
+3. **Extract foot view**
+   - Import 360° video
+   - Use "Reframe" tool
+   - Point camera view down at feet (about -40° tilt)
+   - Export as standard MP4
+
+4. **Process with Python (optional)**
+   ```bash
+   pip install opencv-python
+   ```
+   ```python
+   import cv2
+   
+   # Extract frames from video
+   video = cv2.VideoCapture('foot_view.mp4')
+   frame_num = 0
+   
+   while True:
+       ret, frame = video.read()
+       if not ret:
+           break
+       cv2.imwrite(f'frames/frame_{frame_num:04d}.jpg', frame)
+       frame_num += 1
+   
+   video.release()
+   print(f"Extracted {frame_num} frames")
+   ```
+
+**For Advanced Users - Automated Pipeline:**
+
+```bash
+# Batch process all 360° videos
+for video in raw_videos/*.mp4; do
+    # Extract foot view using FFmpeg
+    ffmpeg -i "$video" \
+        -vf "v360=e:rectilinear:yaw=0:pitch=-40:w=1920:h=1080" \
+        -c:v libx264 -crf 18 \
+        "processed/$(basename $video)"
+done
+
+# Extract frames using Python script
+python extract_frames.py --input_dir processed/ --output_dir dataset/frames/
+```
+
+---
+
+### Troubleshooting Common Issues
+
+#### Issue 1: Video file won't open
+**Solution:** 
+- Ensure camera firmware is updated
+- Use manufacturer's software first to convert
+- Check if file is fully transferred (not corrupted)
+
+#### Issue 2: Computer is slow processing 360° video
+**Solution:**
+- Extract lower resolution view first (1280x720)
+- Use hardware acceleration: `ffmpeg -hwaccel auto`
+- Process videos in batches overnight
+
+#### Issue 3: Foot area is distorted
+**Solution:**
+- Adjust pitch angle in conversion (-30° to -50°)
+- Increase field of view if feet are cut off
+- Check camera mounting angle during recording
+
+#### Issue 4: Files are too large
+**Solution:**
+```bash
+# Compress video while maintaining quality
+ffmpeg -i input.mp4 -c:v libx264 -crf 23 -preset medium output.mp4
+
+# Or reduce resolution
+ffmpeg -i input.mp4 -vf "scale=1280:720" output.mp4
+```
+
+---
+
+## 2. Addressing Speed Variations (Walking vs Running)
 
 ### Problem
 Different movement speeds (walking, jogging, running) significantly affect the appearance and timing of foot gestures, making it challenging for the model to generalize across speeds.
@@ -50,7 +493,7 @@ Different movement speeds (walking, jogging, running) significantly affect the a
 
 ---
 
-## 2. Handling Motion Blur from Camera Movement
+## 3. Handling Motion Blur from Camera Movement
 
 ### Problem
 When the camera moves with the person (body-mounted), images become blurry, making it difficult for the model to identify clear foot gestures.
@@ -87,7 +530,7 @@ Recommended Settings for 360° Camera:
 
 ---
 
-## 3. Camera Placement Recommendations
+## 4. Camera Placement Recommendations
 
 ### Analysis: Lower Body vs Head Mount
 
@@ -134,7 +577,7 @@ RECOMMENDED SETUP:
 
 ---
 
-## 4. Step-by-Step Implementation Guide
+## 5. Step-by-Step Implementation Guide
 
 ### Phase 1: Hardware Setup (Week 1)
 
@@ -317,7 +760,7 @@ Test scenarios:
 
 ---
 
-## 5. Data Collection Best Practices
+## 6. Data Collection Best Practices
 
 ### Lighting Considerations
 - **Minimum illumination**: Ensure at least 500 lux for indoor settings
@@ -338,7 +781,7 @@ Test scenarios:
 
 ---
 
-## 6. Model Architecture Recommendations
+## 7. Model Architecture Recommendations
 
 ### For Real-time Applications
 ```
